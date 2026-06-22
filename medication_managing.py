@@ -256,7 +256,7 @@ with st.container():
             qty = st.number_input("數量", value=st.session_state.qty_val, step=1)
         with qty_col2:
             st.markdown("<div style='padding-top: 40px;'></div>", unsafe_allow_html=True)
-            st.markdown(f"**一** {unit_val}/{stock_val}{min_unit_val}")    
+            st.markdown(f"**每**{unit_val}/{stock_val}{min_unit_val}")    
 
         if st.button("暫存紀錄", type="primary", use_container_width=True):
             if not staff_id.strip() or qty <= 0:
@@ -312,7 +312,7 @@ with st.container():
                     empty_df = pd.DataFrame(columns=temp_df.columns)
                     empty_df.to_csv(temp_csv_path, mode='w', index=False, header=True, encoding='utf-8-sig')
 
-                    st.session_state.save_success = f"🎉 轉存成功！已將 {len(temp_df)} 筆暫存資料正式寫入正式清單，並清空暫存區！"
+                    st.session_state.save_success = f"轉存成功！已將 {len(temp_df)} 筆暫存資料正式寫入正式清單，並清空暫存區！"
                     st.cache_data.clear()
                     st.rerun()
                 except Exception as e:
@@ -367,7 +367,7 @@ with col_b1:
     else:
         st.info("💡 該篩選條件下無歷史進銷存紀錄。")
         
-    st.markdown("### ⏳ 效期庫存總覽 (分品項+同效期加總)")
+    st.markdown("### 效期庫存總覽")
     if not df_expiry_filtered.empty:
         st.dataframe(df_expiry_filtered, use_container_width=True, hide_index=True)
     else:
