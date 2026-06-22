@@ -258,7 +258,7 @@ with st.container():
             st.markdown("<div style='padding-top: 40px;'></div>", unsafe_allow_html=True)
             st.markdown(f"**一** {unit_val}/{stock_val}{min_unit_val}")    
 
-        if st.button("💾 暫存紀錄", type="primary", use_container_width=True):
+        if st.button("暫存紀錄", type="primary", use_container_width=True):
             if not staff_id.strip() or qty <= 0:
                 st.session_state.save_error = "❌ 儲存失敗！請確認「藥品名稱」、「數量」與「員編」皆已完整輸入。"
                 st.rerun()
@@ -286,7 +286,7 @@ with st.container():
                     st.session_state.save_error = f"❌ 寫入檔案時發生錯誤：{e}"
                     st.rerun()
 
-        if st.button("🚀 轉存為正式紀錄 (整批儲存)", type="secondary", use_container_width=True):
+        if st.button("整批儲存", type="secondary", use_container_width=True):
             official_csv_path = "盛軒 - 出庫入庫清單.csv"  
             temp_csv_path = "暫存出入庫清單.csv"           
             df_history = load_official_data()
@@ -320,7 +320,7 @@ with st.container():
                     st.rerun()
 
     with col_list:
-        st.markdown("### 📋 暫存待確認清單")
+        st.markdown("### 暫存清單")
         temp_csv_path = "暫存出入庫清單.csv"  
         if not df2.empty:
             df2_reversed = df2.iloc[:].copy()
@@ -361,7 +361,7 @@ st.markdown("---")
 col_b1, col_b2 = st.columns([1, 1])
 
 with col_b1:
-    st.markdown("### 📝 歷史進銷存流水帳")
+    st.markdown("### 歷史進銷存")
     if not df_history_filtered.empty:
         st.dataframe(df_history_filtered, use_container_width=True, hide_index=True)
     else:
