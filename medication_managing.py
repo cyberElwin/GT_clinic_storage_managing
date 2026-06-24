@@ -39,28 +39,31 @@ if "qty_val" not in st.session_state:
 
 
 # ------------------ 資料讀取與計算邏輯 ------------------
-@st.cache_data 
-def load_data():
-    df = pd.read_csv("盛軒效期管理 - 藥品總表.csv")
-    return df
-df0 = load_data()
+def get_mtime(path):
+    return os.path.getmtime(path) if os.path.exists(path) else 0
 
-@st.cache_data 
-def load_data1():
-    df = pd.read_csv("盛軒 - 出庫入庫清單.csv")
-    return df
-df1 = load_data1()
+@st.cache_data
+def load_data(_mtime):
+    return pd.read_csv("盛軒效期管理 - 藥品總表.csv", encoding='utf-8-sig')
+df0 = load_data(get_mtime("盛軒效期管理 - 藥品總表.csv"))
 
-def temp_data():
-    df = pd.read_csv("暫存出入庫清單.csv")
-    return df
-df2 = temp_data()
+@st.cache_data
+def load_data1(_mtime):
+    return pd.read_csv("盛軒 - 出庫入庫清單.csv", encoding='utf-8-sig')
+df1 = load_data1(get_mtime("盛軒 - 出庫入庫清單.csv"))
 
-def load_official_data():
-    official_path = "盛軒 - 出庫入庫清單.csv"  
+@st.cache_data
+def temp_data(_mtime):
+    return pd.read_csv("暫存出入庫清單.csv", encoding='utf-8-sig')
+df2 = temp_data(get_mtime("暫存出入庫清單.csv"))
+
+@st.cache_data
+def load_official_data(_mtime):
+    official_path = "盛軒 - 出庫入庫清單.csv"
     if os.path.exists(official_path):
         return pd.read_csv(official_path, encoding='utf-8-sig')
     return pd.DataFrame()
+df_official_raw = load_official_data(get_mtime("盛軒 - 出庫入庫清單.csv"))
 
 def data_analyze():
     analyze_path = "盛軒效期管理 - 藥品總表.csv"
@@ -68,7 +71,7 @@ def data_analyze():
         return pd.DataFrame()
     df_med = pd.read_csv(analyze_path, encoding='utf-8-sig')
     
-    df_history = load_official_data()
+    df_history = load_official_data(get_mtime("盛軒 - 出庫入庫清單.csv"))
     if not df_history.empty:
         df_sum = df_history.groupby("六編/藥品簡稱")["數量"].sum()
         df_med["庫存"] = df_med["庫存"] + df_med["六編/藥品簡稱"].map(df_sum).fillna(0)
@@ -113,29 +116,44 @@ def data_analyze():
         df_med["效期警示"] = df_med.apply(make_warning_text, axis=1)
     return df_med
 
-def generate_serial_number(file_path, prefix, date_str):
-    count = 1
-    full_prefix = f"{prefix}{date_str}" 
-    if os.path.exists(file_path):
+def generate_serial_number(temp_file_path, prefix, date_str):
+    full_prefix = f"{prefix}{date_str}"
+    max_num = 0
+
+    # 查暫存區
+    if os.path.exists(temp_file_path):
         try:
-            df_history = pd.read_csv(file_path, encoding='utf-8-sig')
-            if "單號" in df_history.columns and not df_history.empty:
-                today_serials = df_history["單號"].astype(str)
-                today_matches = today_serials[today_serials.str.startswith(full_prefix)]
-                if not today_matches.empty:
-                    max_num = 0
-                    for serial in today_matches:
+            df_temp = pd.read_csv(temp_file_path, encoding='utf-8-sig')
+            if "單號" in df_temp.columns and not df_temp.empty:
+                for serial in df_temp["單號"].astype(str):
+                    if serial.startswith(full_prefix):
                         try:
                             num_part = int(serial.replace(full_prefix, ""))
                             if num_part > max_num:
                                 max_num = num_part
                         except ValueError:
                             continue
-                    count = max_num + 1
         except Exception:
             pass
-    suffix = f"{count:04d}"
-    return f"{full_prefix}{suffix}"
+
+    # 查正式清單（當天同前綴的最大序號）
+    official_path = "盛軒 - 出庫入庫清單.csv"
+    if os.path.exists(official_path):
+        try:
+            df_official = pd.read_csv(official_path, encoding='utf-8-sig')
+            if "單號" in df_official.columns and not df_official.empty:
+                for serial in df_official["單號"].astype(str):
+                    if serial.startswith(full_prefix):
+                        try:
+                            num_part = int(serial.replace(full_prefix, ""))
+                            if num_part > max_num:
+                                max_num = num_part
+                        except ValueError:
+                            continue
+        except Exception:
+            pass
+
+    return f"{full_prefix}{max_num + 1:04d}"
 
 # ------------------ 側邊欄篩選器 ------------------
 st.sidebar.header("🔍 資料查詢篩選器")
@@ -150,7 +168,7 @@ end_date = st.sidebar.date_input("結束日期", today_date)
 filter_status = st.sidebar.selectbox("出入庫狀態", ["全部", "入庫", "出庫"])
 
 # ------------------ 資料基礎讀取與過濾 ------------------
-df_official_raw = load_official_data()  
+df_official_raw = load_official_data(get_mtime("盛軒 - 出庫入庫清單.csv"))  
 df_med_analyzed = data_analyze()       
 
 def apply_basic_filter(df):
@@ -289,8 +307,8 @@ with st.container():
         if st.button("整批儲存", type="secondary", use_container_width=True):
             official_csv_path = "盛軒 - 出庫入庫清單.csv"  
             temp_csv_path = "暫存出入庫清單.csv"           
-            df_history = load_official_data()
-            df_temp = temp_data()  
+            df_history = load_official_data(get_mtime("盛軒 - 出庫入庫清單.csv"))
+            df_temp = temp_data(get_mtime("暫存出入庫清單.csv")) 
             if not df_temp.empty:
                 cols = ["六編/藥品簡稱", "藥品名稱", "效期", "數量"]
                 df_h_sub = df_history[cols] if not df_history.empty else pd.DataFrame(columns=cols)
@@ -305,15 +323,11 @@ with st.container():
                     st.dataframe(df_error_show, use_container_width=True, hide_index=True)
                     st.stop()
                 try:
-                    temp_df = pd.read_csv(temp_csv_path, encoding='utf-8-sig')
                     official_exists = os.path.exists(official_csv_path)
-                    temp_df.to_csv(official_csv_path, mode='a', index=False, header=not official_exists, encoding='utf-8-sig')
-                    
-                    empty_df = pd.DataFrame(columns=temp_df.columns)
+                    df_temp.to_csv(official_csv_path, mode='a', index=False, header=not official_exists, encoding='utf-8-sig')
+                    empty_df = pd.DataFrame(columns=df_temp.columns)
                     empty_df.to_csv(temp_csv_path, mode='w', index=False, header=True, encoding='utf-8-sig')
-
-                    st.session_state.save_success = f"轉存成功！已將 {len(temp_df)} 筆暫存資料正式寫入正式清單，並清空暫存區！"
-                    st.cache_data.clear()
+                    st.session_state.save_success = f"轉存成功！已將 {len(df_temp)} 筆暫存資料正式寫入正式清單，並清空暫存區！"
                     st.rerun()
                 except Exception as e:
                     st.session_state.save_error = f"❌ 轉存時發生錯誤：{e}"
